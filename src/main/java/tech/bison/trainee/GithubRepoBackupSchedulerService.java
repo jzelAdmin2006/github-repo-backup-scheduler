@@ -28,7 +28,7 @@ public class GithubRepoBackupSchedulerService {
 	@Scheduled(fixedRate = 86400000)
 	public void backupGitHub() {
 		try {
-			String repoUrls = findAllRepoUrls().stream().collect(Collectors.joining("\n"));
+			String repoUrls = findAllRepoUrls().stream().map(url -> url + ".git").collect(Collectors.joining("\n"));
 
 			URL url = new URL(ENDPOINT);
 			HttpURLConnection conn = (HttpURLConnection) url.openConnection();
