@@ -20,7 +20,7 @@ import com.google.gson.JsonParser;
 public class GithubRepoBackupSchedulerService {
 	private static final String TOKEN = System.getenv("TOKEN");
 
-	@Scheduled(fixedRate = 50000)
+	@Scheduled(fixedRate = 86400000)
 	public void backupGitHub() {
 		try {
 			for (String repoUrl : findAllRepoUrls()) {
@@ -31,27 +31,33 @@ public class GithubRepoBackupSchedulerService {
 		}
 	}
 
-	// TODO: API only returns first 30 repo URLs
 	private List<String> findAllRepoUrls() throws IOException {
-		String apiUrl = "https://api.github.com/user/repos";
-		URL url = new URL(apiUrl);
-		HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-		conn.setRequestMethod("GET");
-		conn.setRequestProperty("Authorization", "token " + TOKEN);
-		conn.connect();
-		int responseCode = conn.getResponseCode();
-		if (responseCode != 200) {
-			throw new RuntimeException("HttpResponseCode: " + responseCode);
-		}
-		Reader reader = new InputStreamReader(conn.getInputStream());
-		JsonElement jsonElement = JsonParser.parseReader(reader);
-		JsonArray reposArray = jsonElement.getAsJsonArray();
+		int page = 1;
 		List<String> repoUrls = new ArrayList<>();
-		for (JsonElement repoElement : reposArray) {
-			JsonObject repoObject = repoElement.getAsJsonObject();
-			String repoUrl = repoObject.get("html_url").getAsString();
-			repoUrls.add(repoUrl);
-		}
+		boolean hasMorePages;
+		do {
+			String apiUrl = "https://api.github.com/user/repos?page=" + page;
+			URL url = new URL(apiUrl);
+			HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+			conn.setRequestMethod("GET");
+			conn.setRequestProperty("Authorization", "token " + TOKEN);
+			conn.connect();
+			int responseCode = conn.getResponseCode();
+			if (responseCode != 200) {
+				throw new RuntimeException("HttpResponseCode: " + responseCode);
+			}
+			Reader reader = new InputStreamReader(conn.getInputStream());
+			JsonElement jsonElement = JsonParser.parseReader(reader);
+			JsonArray reposArray = jsonElement.getAsJsonArray();
+			hasMorePages = reposArray.size() > 0;
+			for (JsonElement repoElement : reposArray) {
+				JsonObject repoObject = repoElement.getAsJsonObject();
+				String repoUrl = repoObject.get("html_url").getAsString();
+				repoUrls.add(repoUrl);
+			}
+			page++;
+		} while (hasMorePages);
+
 		return repoUrls;
 	}
 }
