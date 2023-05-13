@@ -43,9 +43,7 @@ public class GithubRepoBackupSchedulerService {
 			}
 
 			int responseCode = conn.getResponseCode();
-			if (responseCode != HttpURLConnection.HTTP_OK) {
-				throw new RuntimeException("Failed to send POST request. HttpResponseCode: " + responseCode);
-			}
+			System.out.println("Response code: " + responseCode);
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
