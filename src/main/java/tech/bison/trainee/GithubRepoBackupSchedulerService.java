@@ -1,12 +1,15 @@
 package tech.bison.trainee;
 
+import java.io.DataOutputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.Reader;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.net.URLEncoder;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
@@ -18,13 +21,30 @@ import com.google.gson.JsonParser;
 
 @Service
 public class GithubRepoBackupSchedulerService {
-	private static final String TOKEN = System.getenv("TOKEN");
+	private static final String GITHUB_TOKEN = System.getenv("GITHUB_TOKEN");
+	private static final String BACKUPPER_TOKEN = System.getenv("BACKUPPER_TOKEN");
+	private static final String ENDPOINT = System.getenv("ENDPOINT");
 
 	@Scheduled(fixedRate = 86400000)
 	public void backupGitHub() {
 		try {
-			for (String repoUrl : findAllRepoUrls()) {
-				System.out.println(repoUrl);
+			String repoUrls = findAllRepoUrls().stream().collect(Collectors.joining("\n"));
+
+			URL url = new URL(ENDPOINT);
+			HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+			conn.setRequestMethod("POST");
+			conn.setRequestProperty("token", BACKUPPER_TOKEN);
+			conn.setRequestProperty("Content-Type", "application/x-www-form-urlencoded");
+			conn.setDoOutput(true);
+
+			try (DataOutputStream wr = new DataOutputStream(conn.getOutputStream())) {
+				wr.writeBytes("repoUrls=" + URLEncoder.encode(repoUrls, "UTF-8"));
+				wr.flush();
+			}
+
+			int responseCode = conn.getResponseCode();
+			if (responseCode != HttpURLConnection.HTTP_OK) {
+				throw new RuntimeException("Failed to send POST request. HttpResponseCode: " + responseCode);
 			}
 		} catch (IOException e) {
 			e.printStackTrace();
@@ -40,7 +60,7 @@ public class GithubRepoBackupSchedulerService {
 			URL url = new URL(apiUrl);
 			HttpURLConnection conn = (HttpURLConnection) url.openConnection();
 			conn.setRequestMethod("GET");
-			conn.setRequestProperty("Authorization", "token " + TOKEN);
+			conn.setRequestProperty("Authorization", "token " + GITHUB_TOKEN);
 			conn.connect();
 			int responseCode = conn.getResponseCode();
 			if (responseCode != 200) {
@@ -57,7 +77,6 @@ public class GithubRepoBackupSchedulerService {
 			}
 			page++;
 		} while (hasMorePages);
-
 		return repoUrls;
 	}
 }
